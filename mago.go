@@ -26,7 +26,7 @@ type Cmd struct {
 	cmd *exec.Cmd
 }
 
-func (c Cmd) Run() bool {
+func (c Cmd) Run() (ok bool) {
 	Info.Printf("CMD: %s\n", c.String())
 	if err := c.cmd.Run(); err != nil {
 		return false
@@ -34,7 +34,7 @@ func (c Cmd) Run() bool {
 	return true
 }
 
-func (c Cmd) Start() bool {
+func (c Cmd) Start() (ok bool) {
 	Info.Printf("CMD: %s\n", c.String())
 	if err := c.cmd.Start(); err != nil {
 		return false
@@ -144,7 +144,7 @@ func CmdSync(name string, arg ...string) (ok bool) {
 	return true
 }
 
-func CmdSyncCd(directory string, name string, arg ...string) bool {
+func CmdSyncCd(directory string, name string, arg ...string) (ok bool) {
 	cmd := NewCmd(name, arg...)
 	// TODO(KD): Maybe log that the directory was changed
 	cmd.SetDirectory(directory)

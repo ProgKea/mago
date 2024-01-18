@@ -3,9 +3,11 @@ package mago
 import (
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -190,12 +192,78 @@ func MaybeInstallProgram(name string, installCmd Runnable) (ok bool) {
 	return ok
 }
 
+func refreshWatchFile() (ok bool) {
+	var err error
+	watchFile, err = os.CreateTemp(os.TempDir(), "mago")
+	if err != nil {
+		Error.Println("Could not create temp file for watch mode: %v\n", err)
+		return false
+	}
+	return true
+}
+
+func WatchFiles(patterns []string, ignoredPatterns []string) bool {
+	if watchFile == nil {
+		if !refreshWatchFile() {
+			return false
+		}
+	}
+
+	watchedFileChanged := false
+	err := filepath.Walk(".", func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		for _, ignoredPattern := range ignoredPatterns {
+			ignoredPath, err := filepath.Match(ignoredPattern, path)
+			if err == nil && ignoredPath {
+				return nil
+			}
+			ignoredName, err := filepath.Match(ignoredPattern, info.Name())
+			if err == nil && ignoredName {
+				return nil
+			}
+		}
+
+		patternMatched := false
+		for _, pattern := range patterns {
+			matched, _ := filepath.Match(pattern, info.Name())
+			if matched {
+				patternMatched = true
+				break
+			}
+		}
+		if patternMatched {
+			watchFileInfo, err := watchFile.Stat()
+			if err != nil {
+				Error.Println("Could not stat watch file: %v\n", err)
+				return fs.SkipAll
+			}
+			if info.ModTime().After(watchFileInfo.ModTime()) {
+				watchedFileChanged = true
+				refreshWatchFile()
+				return fs.SkipAll
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		Error.Println("Could not walk current directory: %v\n", err)
+	}
+
+	return watchedFileChanged
+}
+
 var (
 	Info           *log.Logger
 	Warning        *log.Logger
 	Error          *log.Logger
 	InfoLogWriter  LogWriter
 	ErrorLogWriter LogWriter
+	watchFile      *os.File
 )
 
 func init() {

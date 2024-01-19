@@ -87,6 +87,7 @@ func (c Cmd) KillGroup() (ok bool) {
 		return false
 	}
 
+	cmd.Wait()
 	return true
 }
 

@@ -265,7 +265,7 @@ func Watch(patterns, ignoredPatterns []string, name string, args ...string) {
 	cmd, _ := CmdAsync(name, args...)
 	for {
 		if WatchFiles(patterns, ignoredPatterns) {
-			if err := syscall.Kill(-cmd.Process().Pid, syscall.SIGKILL); err != nil {
+			if err := syscall.Kill(-cmd.Process().Pid, syscall.SIGTERM); err != nil {
 				Error.Printf("Could not kill: %q: %v\n", cmd.String(), err)
 			}
 			cmd, _= CmdAsync(name, args...)

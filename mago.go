@@ -137,8 +137,7 @@ func NewCmd(name string, arg ...string) Cmd {
 	cmd := exec.Command(name, arg...)
 	cmd.Stdout = InfoLogWriter
 	cmd.Stderr = ErrorLogWriter
-	// TODO: this probably does not work on windows
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pdeathsig: syscall.SIGKILL}
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	return Cmd{cmd}
 }
 
@@ -265,8 +264,10 @@ func Watch(patterns, ignoredPatterns []string, name string, args ...string) {
 	cmd, _ := CmdAsync(name, args...)
 	for {
 		if WatchFiles(patterns, ignoredPatterns) {
-			cmd.Process().Kill()
-			cmd.Wait()
+			pgid, _ := syscall.Getpgid(cmd.Process().Pid)
+			if err := syscall.Kill(-pgid, syscall.SIGKILL); err != nil {
+				Error.Printf("Could not kill process group pgid: %d: %v\n", pgid, err)
+			}
 			cmd, _ = CmdAsync(name, args...)
 		}
 		time.Sleep(100 * time.Millisecond)

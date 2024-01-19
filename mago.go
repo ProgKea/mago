@@ -138,7 +138,7 @@ func NewCmd(name string, arg ...string) Cmd {
 	cmd.Stdout = InfoLogWriter
 	cmd.Stderr = ErrorLogWriter
 	// TODO: this probably does not work on windows
-	cmd.SysProcAttr = &syscall.SysProcAttr{Pdeathsig: syscall.SIGKILL}
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pdeathsig: syscall.SIGKILL}
 	return Cmd{cmd}
 }
 
@@ -266,6 +266,7 @@ func Watch(patterns, ignoredPatterns []string, name string, args ...string) {
 	for {
 		if WatchFiles(patterns, ignoredPatterns) {
 			cmd.Process().Kill()
+			cmd.Wait()
 			cmd, _ = CmdAsync(name, args...)
 		}
 		time.Sleep(100 * time.Millisecond)

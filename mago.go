@@ -74,6 +74,22 @@ func (c Cmd) Process() *os.Process {
 	return c.cmd.Process
 }
 
+func (c Cmd) KillGroup() (ok bool) {
+	pid := c.Process().Pid
+	pgid, err := syscall.Getpgid(c.Process().Pid)
+	if err != nil {
+		Error.Printf("Could not get pgid of process with id: %d: %v\n", pid, err)
+		return false
+	}
+
+	if err := syscall.Kill(-pgid, syscall.SIGKILL); err != nil {
+		Error.Printf("Could not kill pgid: %d: %v\n", pgid, err)
+		return false
+	}
+
+	return true
+}
+
 type PipedCmds struct {
 	cmds []Cmd
 }

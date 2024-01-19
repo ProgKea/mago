@@ -138,7 +138,7 @@ func NewCmd(name string, arg ...string) Cmd {
 	cmd.Stdout = InfoLogWriter
 	cmd.Stderr = ErrorLogWriter
 	// TODO: this probably does not work on windows
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	cmd.SysProcAttr = &syscall.SysProcAttr{Pdeathsig: syscall.SIGKILL}
 	return Cmd{cmd}
 }
 
@@ -200,7 +200,7 @@ func refreshWatchFile() (ok bool) {
 	var err error
 	watchFile, err = os.CreateTemp(os.TempDir(), "mago")
 	if err != nil {
-		Error.Println("Could not create temp file for watch mode: %v\n", err)
+		Error.Printf("Could not create temp file for watch mode: %v\n", err)
 		return false
 	}
 	return true
@@ -241,7 +241,7 @@ func WatchFiles(patterns []string, ignoredPatterns []string) bool {
 		if patternMatched {
 			watchFileInfo, err := watchFile.Stat()
 			if err != nil {
-				Error.Println("Could not stat watch file: %v\n", err)
+				Error.Printf("Could not stat watch file: %v\n", err)
 				return fs.SkipAll
 			}
 			if info.ModTime().After(watchFileInfo.ModTime()) {
@@ -255,7 +255,7 @@ func WatchFiles(patterns []string, ignoredPatterns []string) bool {
 	})
 
 	if err != nil {
-		Error.Println("Could not walk current directory: %v\n", err)
+		Error.Printf("Could not walk current directory: %v\n", err)
 	}
 
 	return watchedFileChanged
@@ -265,10 +265,8 @@ func Watch(patterns, ignoredPatterns []string, name string, args ...string) {
 	cmd, _ := CmdAsync(name, args...)
 	for {
 		if WatchFiles(patterns, ignoredPatterns) {
-			if err := syscall.Kill(-cmd.Process().Pid, syscall.SIGTERM); err != nil {
-				Error.Printf("Could not kill: %q: %v\n", cmd.String(), err)
-			}
-			cmd, _= CmdAsync(name, args...)
+			cmd.Process().Kill()
+			cmd, _ = CmdAsync(name, args...)
 		}
 		time.Sleep(100 * time.Millisecond)
 	}

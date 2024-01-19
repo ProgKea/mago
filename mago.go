@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
+	"time"
 )
 
 type LogWriter struct {
@@ -135,6 +137,8 @@ func NewCmd(name string, arg ...string) Cmd {
 	cmd := exec.Command(name, arg...)
 	cmd.Stdout = InfoLogWriter
 	cmd.Stderr = ErrorLogWriter
+	// TODO: this probably does not work on windows
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	return Cmd{cmd}
 }
 
@@ -255,6 +259,19 @@ func WatchFiles(patterns []string, ignoredPatterns []string) bool {
 	}
 
 	return watchedFileChanged
+}
+
+func Watch(patterns, ignoredPatterns []string, name string, args ...string) {
+	cmd, _ := CmdAsync(name, args...)
+	for {
+		if WatchFiles(patterns, ignoredPatterns) {
+			if err := syscall.Kill(-cmd.Process().Pid, syscall.SIGKILL); err != nil {
+				Error.Printf("Could not kill: %q: %v\n", cmd.String(), err)
+			}
+			cmd, _= CmdAsync(name, args...)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 var (

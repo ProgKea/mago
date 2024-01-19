@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -74,7 +75,7 @@ func (c Cmd) Process() *os.Process {
 	return c.cmd.Process
 }
 
-func (c Cmd) KillGroup() (ok bool) {
+func (c Cmd) Kill() (ok bool) {
 	pid := c.Process().Pid
 	pgid, err := syscall.Getpgid(pid)
 	if err != nil {
@@ -180,6 +181,13 @@ func CmdAsync(name string, arg ...string) (cmd Cmd, ok bool) {
 		return cmd, false
 	}
 
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		<-c
+		cmd.Kill()
+	}()
+
 	return cmd, true
 }
 
@@ -281,7 +289,7 @@ func Watch(patterns, ignoredPatterns []string, name string, args ...string) {
 	cmd, _ := CmdAsync(name, args...)
 	for {
 		if WatchFiles(patterns, ignoredPatterns) {
-			cmd.KillGroup()
+			cmd.Kill()
 			cmd, _ = CmdAsync(name, args...)
 		}
 		time.Sleep(100 * time.Millisecond)

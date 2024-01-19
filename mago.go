@@ -76,13 +76,13 @@ func (c Cmd) Process() *os.Process {
 
 func (c Cmd) KillGroup() (ok bool) {
 	pid := c.Process().Pid
-	pgid, err := syscall.Getpgid(c.Process().Pid)
+	pgid, err := syscall.Getpgid(pid)
 	if err != nil {
 		Error.Printf("Could not get pgid of process with id: %d: %v\n", pid, err)
 		return false
 	}
 
-	if err := syscall.Kill(-pgid, syscall.SIGKILL); err != nil {
+	if err := syscall.Kill(-pgid, syscall.SIGTERM); err != nil {
 		Error.Printf("Could not kill pgid: %d: %v\n", pgid, err)
 		return false
 	}
@@ -280,10 +280,7 @@ func Watch(patterns, ignoredPatterns []string, name string, args ...string) {
 	cmd, _ := CmdAsync(name, args...)
 	for {
 		if WatchFiles(patterns, ignoredPatterns) {
-			pgid, _ := syscall.Getpgid(cmd.Process().Pid)
-			if err := syscall.Kill(-pgid, syscall.SIGKILL); err != nil {
-				Error.Printf("Could not kill process group pgid: %d: %v\n", pgid, err)
-			}
+			cmd.KillGroup()
 			cmd, _ = CmdAsync(name, args...)
 		}
 		time.Sleep(100 * time.Millisecond)
